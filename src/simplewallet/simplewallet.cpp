@@ -187,6 +187,7 @@ namespace
   const char* USAGE_PAYMENTS("payments <PID_1> [<PID_2> ... <PID_N>]");
   const char* USAGE_PAYMENT_ID("payment_id");
   const char* USAGE_TRANSFER("transfer [index=<N1>[,<N2>,...]] [<priority>] [<ring_size>] (<URI> | <address> <amount>) [<payment_id>]");
+  const char* USAGE_RECONSTRUCT_TRANSACTION("reconstruct_transaction [<input_filename>] [<output_filename>]");
   const char* USAGE_LOCKED_TRANSFER("locked_transfer [index=<N1>[,<N2>,...]] [<priority>] [<ring_size>] (<URI> | <addr> <amount>) <lockblocks> [<payment_id (obsolete)>]");
   const char* USAGE_LOCKED_SWEEP_ALL("locked_sweep_all [index=<N1>[,<N2>,...] | index=all] [<priority>] [<ring_size>] <address> <lockblocks> [<payment_id (obsolete)>]");
   const char* USAGE_SWEEP_ALL("sweep_all [index=<N1>[,<N2>,...] | index=all] [<priority>] [<ring_size>] [outputs=<N>] <address> [<payment_id (obsolete)>]");
@@ -3250,6 +3251,9 @@ simple_wallet::simple_wallet()
   m_cmd_binder.set_handler("transfer", boost::bind(&simple_wallet::on_command, this, &simple_wallet::transfer, _1),
                            tr(USAGE_TRANSFER),
                            tr("Transfer <amount> to <address>. If the parameter \"index=<N1>[,<N2>,...]\" is specified, the wallet uses outputs received by addresses of those indices. If omitted, the wallet randomly chooses address indices to be used. In any case, it tries its best not to combine outputs across multiple addresses. <priority> is the priority of the transaction. The higher the priority, the higher the transaction fee. Valid values in priority order (from lowest to highest) are: unimportant, normal, elevated, priority. If omitted, the default value (see the command \"set priority\") is used. <ring_size> is the number of inputs to include for untraceability. Multiple payments can be made at once by adding URI_2 or <address_2> <amount_2> etcetera (before the payment ID, if it's included)"));
+  m_cmd_binder.set_handler("reconstruct_transaction", boost::bind(&simple_wallet::on_command, this, &simple_wallet::reconstruct_transaction, _1),
+                           tr(USAGE_RECONSTRUCT_TRANSACTION),
+                           tr("Build a new transaction with the same data as the given one. The new one will be signed by this wallet keys first."));
   m_cmd_binder.set_handler("locked_transfer",
                            boost::bind(&simple_wallet::on_command, this, &simple_wallet::locked_transfer,_1),
                            tr(USAGE_LOCKED_TRANSFER),
@@ -6464,6 +6468,13 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
 
   std::vector<std::string> local_args = args_;
 
+  bool skip_signing = false;
+  if (local_args.size() > 0 && local_args[0] == "skip_signing")
+  {
+    skip_signing = true;
+    local_args.erase(local_args.begin());
+  }
+
   std::set<uint32_t> subaddr_indices;
   if (local_args.size() > 0 && local_args[0].substr(0, 6) == "index=")
   {
@@ -6649,6 +6660,14 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
 
     dsts.push_back(de);
   }
+    
+  std::string extra_print;
+  for (uint8_t e : extra)
+  {
+    extra_print.append(to_string(e));
+    extra_print.append(" ");
+  }
+  LOG_PRINT_L2("extra: " << extra_print);
 
   SCOPED_WALLET_UNLOCK_ON_BAD_PASSWORD(return false;);
 
@@ -6668,13 +6687,13 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
           return false;
         }
         unlock_block = bc_height + locked_blocks;
-        ptx_vector = m_wallet->create_transactions_2(dsts, fake_outs_count, unlock_block /* unlock_time */, priority, extra, m_current_subaddress_account, subaddr_indices);
+        ptx_vector = m_wallet->create_transactions_2(dsts, fake_outs_count, unlock_block /* unlock_time */, priority, extra, m_current_subaddress_account, subaddr_indices, skip_signing);
       break;
       default:
         LOG_ERROR("Unknown transfer method, using default");
         /* FALLTHRU */
       case Transfer:
-        ptx_vector = m_wallet->create_transactions_2(dsts, fake_outs_count, 0 /* unlock_time */, priority, extra, m_current_subaddress_account, subaddr_indices);
+        ptx_vector = m_wallet->create_transactions_2(dsts, fake_outs_count, 0 /* unlock_time */, priority, extra, m_current_subaddress_account, subaddr_indices, skip_signing);
       break;
     }
 
@@ -6912,6 +6931,76 @@ bool simple_wallet::transfer(const std::vector<std::string> &args_)
 bool simple_wallet::locked_transfer(const std::vector<std::string> &args_)
 {
   transfer_main(TransferLocked, args_, false);
+  return true;
+}
+//----------------------------------------------------------------------------------------------------
+bool simple_wallet::reconstruct_transaction(const std::vector<std::string> &args_)
+{
+  // 1. Parse arguments, basic checks.
+  // 2. Call wallet2::reconstruct_transaction to get the new TX.
+  // 3. Save the TX, see transfer.
+  
+  
+  // 1. Parse arguments, basic checks.
+  bool ready;
+  if(!m_wallet->multisig(&ready))
+  {
+    fail_msg_writer() << tr("This is not a multisig wallet");
+    return false;
+  }
+  if (!ready)
+  {
+    fail_msg_writer() << tr("This multisig wallet is not yet finalized");
+    return false;
+  }
+
+  std::string input_filename("multisig_monero_tx");
+  std::string output_filename("multisig_monero_tx_signed");
+  if (args_.size() > 0)
+  {
+    input_filename = args_[0];
+  }
+  if (args_.size() > 1)
+  {
+    output_filename = args_[1];
+  }
+  if (args_.size() > 2)
+  {
+    PRINT_USAGE(USAGE_RECONSTRUCT_TRANSACTION);
+    return false;
+  }
+  
+  SCOPED_WALLET_UNLOCK_ON_BAD_PASSWORD(return false;);
+
+  // 2. Call wallet2::reconstruct_transaction to get the new TX.
+  std::vector<tools::wallet2::pending_tx> ptx_vector;
+
+  try
+  {
+    ptx_vector = m_wallet->reconstruct_transaction_from(input_filename);
+  } catch (...) 
+  {
+    // ptx_vector stays empty. Will be handled below. 
+  }
+
+  if (ptx_vector.empty())
+  {
+    fail_msg_writer() << tr("Failed to reconstruct the transaction. See the logs for details.");
+    return false;
+  }
+
+  // 3. Save the TX, see transfer.
+  bool r = m_wallet->save_multisig_tx(ptx_vector, output_filename);
+  if (!r)
+  {
+    fail_msg_writer() << tr("Failed to write transaction(s) to file");
+    return false;
+  }
+  else
+  {
+    success_msg_writer(true) << tr("Unsigned transaction(s) successfully written to file: ") << output_filename;
+  }
+
   return true;
 }
 //----------------------------------------------------------------------------------------------------

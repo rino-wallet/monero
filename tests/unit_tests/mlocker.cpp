@@ -31,7 +31,7 @@
 #include "misc_log_ex.h"
 #include "mlocker.h"
 
-#if defined __GNUC__ && !defined _WIN32
+#if defined __GNUC__ && !defined _WIN32 && !defined __EMSCRIPTEN__
 #define HAVE_MLOCK 1
 #endif
 
