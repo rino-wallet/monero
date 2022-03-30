@@ -543,6 +543,7 @@ namespace wallet_rpc
       bool do_not_relay;
       bool get_tx_hex;
       bool get_tx_metadata;
+      bool skip_signing;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(destinations)
@@ -556,6 +557,7 @@ namespace wallet_rpc
         KV_SERIALIZE_OPT(do_not_relay, false)
         KV_SERIALIZE_OPT(get_tx_hex, false)
         KV_SERIALIZE_OPT(get_tx_metadata, false)
+        KV_SERIALIZE_OPT(skip_signing, false)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<request_t> request;
@@ -2504,6 +2506,47 @@ namespace wallet_rpc
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(address)
         KV_SERIALIZE(multisig_info)
+      END_KV_SERIALIZE_MAP()
+    };
+    typedef epee::misc_utils::struct_init<response_t> response;
+  };
+
+  struct COMMAND_RPC_RECONSTRUCT_TRANSACTION
+  {
+    struct request_t
+    {
+      std::string tx_data_hex;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(tx_data_hex)
+      END_KV_SERIALIZE_MAP()
+    };
+    typedef epee::misc_utils::struct_init<request_t> request;
+
+    struct response_t
+    {
+      std::string tx_hash;
+      std::string tx_key;
+      uint64_t amount;
+      uint64_t fee;
+      uint64_t weight;
+      std::string tx_blob;
+      std::string tx_metadata;
+      std::string multisig_txset;
+      std::string unsigned_txset;
+      key_image_list spent_key_images;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(tx_hash)
+        KV_SERIALIZE(tx_key)
+        KV_SERIALIZE(amount)
+        KV_SERIALIZE(fee)
+        KV_SERIALIZE(weight)
+        KV_SERIALIZE(tx_blob)
+        KV_SERIALIZE(tx_metadata)
+        KV_SERIALIZE(multisig_txset)
+        KV_SERIALIZE(unsigned_txset)
+        KV_SERIALIZE(spent_key_images)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<response_t> response;
