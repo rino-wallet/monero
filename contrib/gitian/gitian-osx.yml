@@ -1,5 +1,5 @@
 ---
-name: "monero-osx-0.17"
+name: "monero-osx-0.18"
 enable_cache: true
 suites:
 - "bionic"
@@ -26,11 +26,10 @@ packages:
 remotes:
 - "url": "https://github.com/monero-project/monero.git"
   "dir": "monero"
-files:
-- "MacOSX10.11.sdk.tar.gz"
+files: []
 script: |
   WRAP_DIR=$HOME/wrapped
-  HOSTS="x86_64-apple-darwin11"
+  HOSTS="x86_64-apple-darwin11 aarch64-apple-darwin11"
   FAKETIME_HOST_PROGS=""
   FAKETIME_PROGS="ar ranlib date dmg genisoimage python"
 
@@ -88,9 +87,6 @@ script: |
 
   BASEPREFIX=`pwd`/contrib/depends
 
-  mkdir -p ${BASEPREFIX}/SDKs
-  tar -C ${BASEPREFIX}/SDKs -xf ${BUILD_DIR}/MacOSX10.11.sdk.tar.gz
-
   # Build dependencies for each host
   export TAR_OPTIONS=--mtime=2000-01-01T12:00:00
   for i in $HOSTS; do
@@ -112,7 +108,7 @@ script: |
     cmake .. -DCMAKE_TOOLCHAIN_FILE=${BASEPREFIX}/${i}/share/toolchain.cmake
     make ${MAKEOPTS}
     chmod 755 bin/*
-    cp ../LICENSE ../README.md ../ANONYMITY_NETWORKS.md bin
+    cp ../LICENSE ../README.md ../docs/ANONYMITY_NETWORKS.md bin
     chmod 644 bin/LICENSE bin/*.md
     DISTNAME=monero-${i}-${version}
     mv bin ${DISTNAME}

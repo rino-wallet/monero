@@ -1,4 +1,5 @@
-// Copyright (c) 2018, The Monero Project
+// Copyright (c) 2018-2022, The Monero Project
+
 // 
 // All rights reserved.
 // 
@@ -31,7 +32,7 @@
 #include "misc_log_ex.h"
 #include "mlocker.h"
 
-#if defined __GNUC__ && !defined _WIN32
+#if defined __GNUC__ && !defined _WIN32 && !defined __EMSCRIPTEN__
 #define HAVE_MLOCK 1
 #endif
 
