@@ -241,7 +241,7 @@ namespace
   const char* USAGE_IMPORT_KEY_IMAGES("import_key_images <filename>");
   const char* USAGE_HW_KEY_IMAGES_SYNC("hw_key_images_sync");
   const char* USAGE_HW_RECONNECT("hw_reconnect");
-  const char* USAGE_EXPORT_OUTPUTS("export_outputs [all] <filename>");
+  const char* USAGE_EXPORT_OUTPUTS("export_outputs [all] [complete] <filename>");
   const char* USAGE_IMPORT_OUTPUTS("import_outputs <filename>");
   const char* USAGE_SHOW_TRANSFER("show_transfer <txid>");
   const char* USAGE_MAKE_MULTISIG("make_multisig <threshold> <string1> [<string>...]");
