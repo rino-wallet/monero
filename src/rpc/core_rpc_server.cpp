@@ -1275,6 +1275,8 @@ namespace cryptonote
           add_reason(reason, "fee too low");
         if ((res.too_few_outputs = tvc.m_too_few_outputs))
           add_reason(reason, "too few outputs");
+        if ((res.tx_extra_too_big = tvc.m_tx_extra_too_big))
+          add_reason(reason, "tx-extra too big");
         const std::string punctuation = reason.empty() ? "" : ": ";
         if (tvc.m_verifivation_failed)
         {
@@ -2290,6 +2292,12 @@ namespace cryptonote
         return m_bootstrap_daemon->handle_result(false, {});
       }
 
+      if (bootstrap_daemon_height < m_core.get_checkpoints().get_max_height())
+      {
+        MINFO("Bootstrap daemon height is lower than the latest checkpoint");
+        return m_bootstrap_daemon->handle_result(false, {});
+      }
+
       if (!m_p2p.get_payload_object().no_sync())
       {
         uint64_t top_height = m_core.get_current_blockchain_height();
@@ -2855,6 +2863,10 @@ namespace cryptonote
 
     res.version = CORE_RPC_VERSION;
     res.release = MONERO_VERSION_IS_RELEASE;
+    res.current_height = m_core.get_current_blockchain_height();
+    res.target_height = m_p2p.get_payload_object().is_synchronized() ? 0 : m_core.get_target_blockchain_height();
+    for (const auto &hf : m_core.get_blockchain_storage().get_hardforks())
+       res.hard_forks.push_back({hf.version, hf.height});
     res.status = CORE_RPC_STATUS_OK;
     return true;
   }

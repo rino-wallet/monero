@@ -537,6 +537,10 @@ namespace cryptonote
       MLOG_PEER_STATE("requesting chain");
     }
 
+    // load json & DNS checkpoints every 10min/hour respectively,
+    // and verify them with respect to what blocks we already have
+    CHECK_AND_ASSERT_MES(m_core.update_checkpoints(), 1, "One or more checkpoints loaded from json or dns conflicted with existing checkpoints.");
+
     return 1;
   }
   //------------------------------------------------------------------------------------------------------------------------
@@ -819,6 +823,10 @@ namespace cryptonote
           post_notify<NOTIFY_REQUEST_CHAIN>(r, context);
           MLOG_PEER_STATE("requesting chain");
         }            
+
+        // load json & DNS checkpoints every 10min/hour respectively,
+        // and verify them with respect to what blocks we already have
+        CHECK_AND_ASSERT_MES(m_core.update_checkpoints(), 1, "One or more checkpoints loaded from json or dns conflicted with existing checkpoints.");
       }
     } 
     else
@@ -1012,7 +1020,7 @@ namespace cryptonote
     for (auto& tx : arg.txs)
     {
       tx_verification_context tvc{};
-      if (!m_core.handle_incoming_tx({tx, crypto::null_hash}, tvc, tx_relay, true))
+      if (!m_core.handle_incoming_tx({tx, crypto::null_hash}, tvc, tx_relay, true) && !tvc.m_no_drop_offense)
       {
         LOG_PRINT_CCONTEXT_L1("Tx verification failed, dropping connection");
         drop_connection(context, false, false);

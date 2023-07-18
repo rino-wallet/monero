@@ -28,46 +28,38 @@
 // 
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
-#pragma once
+#pragma once 
 
-#include "cryptonote_protocol/enums.h"
+#include <unordered_set>
+#include <mutex>
 
-namespace cryptonote
+namespace tools
 {
-  /************************************************************************/
-  /*                                                                      */
-  /************************************************************************/
-  struct tx_verification_context
+  template<typename T, size_t MAX_SIZE>
+  class data_cache
   {
-    static_assert(unsigned(relay_method::none) == 0, "default m_relay initialization is not to relay_method::none");
+  public:
+    void add(const T& value)
+    {
+      std::lock_guard<std::mutex> lock(m);
+      if (data.insert(value).second)
+      {
+        T& old_value = buf[counter++ % MAX_SIZE];
+        data.erase(old_value);
+        old_value = value;
+      }
+    }
 
-    relay_method m_relay; // gives indication on how tx should be relayed (if at all)
-    bool m_verifivation_failed; //bad tx, tx should not enter mempool and connection should be dropped unless m_no_drop_offense
-    // Do not add to mempool, do not relay, but also do not punish the peer for sending or drop
-    // connections to them. Used for low fees, tx_extra too big, "relay-only rules". Not to be
-    // confused with breaking soft fork rules, because tx could be later added to the chain if mined
-    // because it does not violate consensus rules.
-    bool m_no_drop_offense;
-    bool m_verifivation_impossible; //the transaction is related with an alternative blockchain
-    bool m_added_to_pool; 
-    bool m_low_mixin;
-    bool m_double_spend;
-    bool m_invalid_input;
-    bool m_invalid_output;
-    bool m_too_big;
-    bool m_overspend;
-    bool m_fee_too_low;
-    bool m_too_few_outputs;
-    bool m_tx_extra_too_big;
-  };
+    bool has(const T& value) const
+    {
+      std::lock_guard<std::mutex> lock(m);
+      return (data.find(value) != data.end());
+    }
 
-  struct block_verification_context
-  {
-    bool m_added_to_main_chain;
-    bool m_verifivation_failed; //bad block, should drop connection
-    bool m_marked_as_orphaned;
-    bool m_already_exists;
-    bool m_partial_block_reward;
-    bool m_bad_pow; // if bad pow, bad peer outright for DoS protection
+  private:
+    mutable std::mutex m;
+    std::unordered_set<T> data;
+    T buf[MAX_SIZE] = {};
+    size_t counter = 0;
   };
 }

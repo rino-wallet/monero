@@ -88,7 +88,7 @@ namespace cryptonote
 // advance which version they will stop working with
 // Don't go over 32767 for any of these
 #define CORE_RPC_VERSION_MAJOR 3
-#define CORE_RPC_VERSION_MINOR 10
+#define CORE_RPC_VERSION_MINOR 12
 #define MAKE_CORE_RPC_VERSION(major,minor) (((major)<<16)|(minor))
 #define CORE_RPC_VERSION MAKE_CORE_RPC_VERSION(CORE_RPC_VERSION_MAJOR, CORE_RPC_VERSION_MINOR)
 
@@ -592,6 +592,7 @@ namespace cryptonote
       bool fee_too_low;
       bool too_few_outputs;
       bool sanity_check_failed;
+      bool tx_extra_too_big;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE_PARENT(rpc_access_response_base)
@@ -606,6 +607,7 @@ namespace cryptonote
         KV_SERIALIZE(fee_too_low)
         KV_SERIALIZE(too_few_outputs)
         KV_SERIALIZE(sanity_check_failed)
+        KV_SERIALIZE(tx_extra_too_big)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<response_t> response;
@@ -2123,15 +2125,34 @@ namespace cryptonote
     };
     typedef epee::misc_utils::struct_init<request_t> request;
 
+    struct hf_entry
+    {
+      uint8_t hf_version;
+      uint64_t height;
+
+      bool operator==(const hf_entry& hfe) const { return hf_version == hfe.hf_version && height == hfe.height; }
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(hf_version)
+        KV_SERIALIZE(height)
+      END_KV_SERIALIZE_MAP()
+    };
+
     struct response_t: public rpc_response_base
     {
       uint32_t version;
       bool release;
+      uint64_t current_height;
+      uint64_t target_height;
+      std::vector<hf_entry> hard_forks;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE_PARENT(rpc_response_base)
         KV_SERIALIZE(version)
         KV_SERIALIZE(release)
+        KV_SERIALIZE_OPT(current_height, (uint64_t)0)
+        KV_SERIALIZE_OPT(target_height, (uint64_t)0)
+        KV_SERIALIZE_OPT(hard_forks, std::vector<hf_entry>())
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<response_t> response;
